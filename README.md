@@ -1,80 +1,55 @@
-local player = game.Players.LocalPlayer
-local gui = player:WaitForChild("PlayerGui")
-
--- Seeds to monitor (confirmed Divine and Prismatic)
-local targetSeeds = {
-    ["grape"] = true,
-    ["mushroom"] = true,
-    ["pepper"] = true,
-    ["cacao"] = true,
-    ["beanstalk"] = true,
-    ["ember lily"] = true
+-- Divine and Prismatic Seeds Auto-Buyer
+local divineSeeds = {
+    ["Grape Seed"] = true,
+    ["Mushroom Seed"] = true,
+    ["Pepper Seed"] = true,
+    ["Cacao Seed"] = true,
 }
 
--- Auto-Buy toggle
+local prismaticSeeds = {
+    ["Beanstalk Seed"] = true,
+    ["Ember Lily Seed"] = true,
+}
+
 local autoBuyEnabled = false
 
--- Create UI button
-local screen = Instance.new("ScreenGui", gui)
-screen.Name = "AutoBuyUI"
-
-local button = Instance.new("TextButton", screen)
-button.Size = UDim2.new(0, 180, 0, 50)
-button.Position = UDim2.new(0, 20, 0, 100)
-button.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+-- UI toggle
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 200, 0, 50)
+button.Position = UDim2.new(0, 50, 0, 100)
 button.Text = "Auto-Buy OFF"
-button.Font = Enum.Font.SourceSansBold
-button.TextScaled = true
+button.BackgroundColor3 = Color3.fromRGB(200, 100, 100)
+button.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("ScreenGui") -- ajuste se necessário
 
--- Main function to scan the SEEDS shop
-local function monitorShop()
-    local shop = gui:WaitForChild("SEEDS", 10)
-    if not shop then
-        warn("SEEDS shop not found.")
-        return
-    end
+button.MouseButton1Click:Connect(function()
+    autoBuyEnabled = not autoBuyEnabled
+    button.Text = autoBuyEnabled and "Auto-Buy ON" or "Auto-Buy OFF"
+    button.BackgroundColor3 = autoBuyEnabled and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(200, 100, 100)
+end)
 
-    while autoBuyEnabled do
-        for _, item in pairs(shop:GetDescendants()) do
-            if item:IsA("TextLabel") or item:IsA("TextButton") then
-                local text = item.Text:lower()
+-- Auto-buy loop
+task.spawn(function()
+    while true do
+        if autoBuyEnabled then
+            local seedsShop = workspace:FindFirstChild("Seeds") or workspace:FindFirstChild("SEEDS")
+            if seedsShop then
+                for _, seedUI in pairs(seedsShop:GetChildren()) do
+                    if seedUI:IsA("TextLabel") then
+                        local seedName = seedUI.Text
+                        local isDivine = divineSeeds[seedName]
+                        local isPrismatic = prismaticSeeds[seedName]
+                        local stock = tonumber(seedUI.Parent:FindFirstChild("Stock").Text:match("%d+"))
+                        local priceText = seedUI.Parent:FindFirstChild("Price").Text
+                        local price = tonumber(priceText:gsub(",", ""):match("%d+"))
 
-                -- Check if it matches any valid seed name
-                for seedName in pairs(targetSeeds) do
-                    if text:find(seedName) then
-                        local parent = item.Parent
-                        local inStock = true
-
-                        for _, child in pairs(parent:GetChildren()) do
-                            if child:IsA("TextLabel") and child.Text:lower():find("no stock") then
-                                inStock = false
-                                break
-                            end
-                        end
-
-                        if inStock then
-                            print("Buying seed:", seedName)
-                            if item:IsA("TextButton") then
-                                item:Activate()
-                            elseif parent:FindFirstChildWhichIsA("TextButton") then
-                                parent:FindFirstChildWhichIsA("TextButton"):Activate()
-                            end
+                        local money = game.Players.LocalPlayer.leaderstats.Cash.Value
+                        if (isDivine or isPrismatic) and stock > 0 and money >= price then
+                            fireclickdetector(seedUI.Parent:FindFirstChild("ClickDetector")) -- ajusta isso se necessário
                         end
                     end
                 end
             end
         end
-        wait(1.5)
-    end
-end
-
--- Toggle button logic
-button.MouseButton1Click:Connect(function()
-    autoBuyEnabled = not autoBuyEnabled
-    button.Text = autoBuyEnabled and "Auto-Buy ON" or "Auto-Buy OFF"
-    button.BackgroundColor3 = autoBuyEnabled and Color3.fromRGB(200, 100, 100) or Color3.fromRGB(100, 200, 100)
-
-    if autoBuyEnabled then
-        task.spawn(monitorShop)
+        task.wait(3)
     end
 end)
