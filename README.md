@@ -1,162 +1,71 @@
-local Players       = game:GetService("Players")
-local TweenService  = game:GetService("TweenService")
-
-local player    = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
-local shop = workspace:FindFirstChild("SEEDS")
-if not shop then
-    warn("Shop model 'SEEDS' not found in workspace")
-    return
-end
-
-local filteredFruits = {
-    "Grape",
-    "Mushroom",
-    "Pepper",
-    "Cacao",
-    "Beanstalk",
-    "EmberLily"
+-- Divine and Prismatic seed names
+local divineSeeds = {
+    Grape = true,
+    Mushroom = true,
+    Pepper = true,
+    Cacao = true
 }
 
-local fixedPrices = {
-    Grape     = 850000,
-    Mushroom  = 150000,
-    Pepper    = 1000000,
-    Cacao     = 2500000,
-    Beanstalk = 10000000,
-    EmberLily = 15000000
+local prismaticSeeds = {
+    ["Beanstalk"] = true,
+    ["Ember Lily"] = true
 }
 
-local rarities = {
-    Grape     = "Divine",
-    Mushroom  = "Divine",
-    Pepper    = "Divine",
-    Cacao     = "Divine",
-    Beanstalk = "Prismatic",
-    EmberLily = "Prismatic"
-}
+-- Toggle variable
+local autoBuyEnabled = true
 
-local hue = 0
-local function getRainbowColor()
-    hue = (hue + 0.01) % 1
-    return Color3.fromHSV(hue, 1, 1)
-end
+-- Create button
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "AutoBuyGUI"
 
-local function formatTime(seconds)
-    local minutes = math.floor(seconds / 60)
-    local secs    = seconds % 60
-    return string.format("%02d:%02d", minutes, secs)
-end
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 200, 0, 50)
+button.Position = UDim2.new(0, 50, 0, 100)
+button.Text = "Auto-Buy ON"
+button.BackgroundColor3 = Color3.fromRGB(200, 100, 100)
+button.TextScaled = true
+button.Parent = gui
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name         = "niiscript"
-screenGui.ResetOnSpawn = false
-screenGui.Parent       = playerGui
-
-local toggleButton = Instance.new("TextButton")
-toggleButton.Name             = "niiscript"
-toggleButton.Size             = UDim2.new(0, 32, 0, 32)
-toggleButton.Position         = UDim2.new(0, 10, 0, 50)
-toggleButton.BackgroundColor3 = Color3.fromRGB(120, 0, 180)
-toggleButton.BorderSizePixel  = 0
-toggleButton.Font             = Enum.Font.SourceSansBold
-toggleButton.Text             = "≡"
-toggleButton.TextSize         = 24
-toggleButton.TextColor3       = Color3.new(1, 1, 1)
-toggleButton.Parent           = screenGui
-
-local clickSound = Instance.new("Sound")
-clickSound.SoundId = "rbxassetid://9118823104"
-clickSound.Volume  = 1
-clickSound.Parent  = toggleButton
-
-local frame = Instance.new("Frame")
-frame.Size             = UDim2.new(0, 260, 0, #filteredFruits * 30 + 60)
-frame.Position         = UDim2.new(0, 50, 0, 50)
-frame.BackgroundColor3 = Color3.fromRGB(40, 0, 60)
-frame.BorderSizePixel  = 0
-frame.Visible          = false
-frame.Parent           = screenGui
-
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Padding       = UDim.new(0, 5)
-UIListLayout.FillDirection = Enum.FillDirection.Vertical
-UIListLayout.SortOrder     = Enum.SortOrder.LayoutOrder
-UIListLayout.Parent        = frame
-
-local labels = {}
-for _, fruit in ipairs(filteredFruits) do
-    local lbl = Instance.new("TextLabel")
-    lbl.Size                 = UDim2.new(1, -10, 0, 25)
-    lbl.BackgroundTransparency = 1
-    lbl.RichText             = true
-    lbl.Font                 = Enum.Font.SourceSansBold
-    lbl.TextSize             = 18
-    lbl.TextXAlignment       = Enum.TextXAlignment.Left
-    lbl.Text                 = fruit .. " - Checking..."
-    lbl.Parent               = frame
-    labels[fruit]            = lbl
-end
-
-local timerLabel = Instance.new("TextLabel")
-timerLabel.Size                 = UDim2.new(1, -10, 0, 25)
-timerLabel.BackgroundTransparency = 1
-timerLabel.Font                 = Enum.Font.SourceSansItalic
-timerLabel.TextSize             = 16
-timerLabel.TextXAlignment       = Enum.TextXAlignment.Left
-timerLabel.TextColor3           = Color3.fromRGB(255, 215, 100)
-timerLabel.Text                 = "Restock in: --"
-timerLabel.Parent               = frame
-
-local isOpen = false
-toggleButton.MouseButton1Click:Connect(function()
-    isOpen = not isOpen
-    frame.Visible = isOpen
-    clickSound:Play()
-    local targetColor = isOpen and Color3.fromRGB(150, 0, 255) or Color3.fromRGB(120, 0, 180)
-    TweenService:Create(toggleButton, TweenInfo.new(0.25), {BackgroundColor3 = targetColor}):Play()
+button.MouseButton1Click:Connect(function()
+    autoBuyEnabled = not autoBuyEnabled
+    button.Text = autoBuyEnabled and "Auto-Buy ON" or "Auto-Buy OFF"
+    button.BackgroundColor3 = autoBuyEnabled and Color3.fromRGB(200, 100, 100) or Color3.fromRGB(100, 100, 100)
 end)
 
-while true do
-    local inStock = {}
-    for _, item in pairs(shop:GetChildren()) do
-        if table.find(filteredFruits, item.Name) then
-            inStock[item.Name] = true
+-- Buying function
+task.spawn(function()
+    while true do
+        if autoBuyEnabled then
+            local seedsShop = workspace:FindFirstChild("SEEDS")
+            if seedsShop then
+                for _, seed in pairs(seedsShop:GetChildren()) do
+                    if seed:IsA("Model") then
+                        local name = seed.Name
+                        local stock = seed:FindFirstChild("Stock")
+                        local price = seed:FindFirstChild("Price")
+                        local rarity = seed:FindFirstChild("Rarity")
+                        local buyButton = seed:FindFirstChild("Buy")
+
+                        if stock and price and rarity and buyButton then
+                            local stockAmount = tonumber(stock.Value:match("%d+")) or 0
+                            local priceAmount = tonumber(price.Value:match("%d+")) or math.huge
+                            local playerMoney = player.leaderstats and player.leaderstats:FindFirstChild("Money") and player.leaderstats.Money.Value or 0
+                            local rarityText = rarity.Value
+
+                            local isWanted =
+                                divineSeeds[name] and rarityText == "Divine" or
+                                prismaticSeeds[name] and rarityText == "Prismatica"
+
+                            if stockAmount > 0 and isWanted and playerMoney >= priceAmount then
+                                fireclickdetector(buyButton:FindFirstChildOfClass("ClickDetector"))
+                                print("Bought seed:", name)
+                            end
+                        end
+                    end
+                end
+            end
         end
+        task.wait(2.5)
     end
-
-    for _, fruit in ipairs(filteredFruits) do
-        local rarity = rarities[fruit]
-        local tagText
-        if rarity == "Divine" then
-            tagText = '<font color="rgb(255,170,0)">[Divine]</font>'
-        else
-            local c = getRainbowColor()
-            tagText = string.format('<font color="rgb(%d,%d,%d)">[Prismatic]</font>',
-                math.floor(c.R*255), math.floor(c.G*255), math.floor(c.B*255))
-        end
-
-        if inStock[fruit] then
-            local price = fixedPrices[fruit]
-            labels[fruit].Text = string.format(
-                '%s %s - <font color="rgb(100,255,100)">In Stock - Price: %s</font>',
-                fruit, tagText, tostring(price)
-            )
-        else
-            labels[fruit].Text = string.format(
-                '%s %s - <font color="rgb(255,90,90)">Out of Stock</font>',
-                fruit, tagText
-            )
-        end
-    end
-
-    local restockVal = shop:FindFirstChild("RestockTime")
-    if restockVal and restockVal:IsA("IntValue") then
-        timerLabel.Text = "Restock in: " .. formatTime(restockVal.Value)
-    else
-        timerLabel.Text = "Restock in: --"
-    end
-
-    wait(1)
-end
+end)
